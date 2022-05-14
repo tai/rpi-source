@@ -43,6 +43,9 @@ if os.environ.get('REPO_URI'):
     repo_uri = os.environ.get('REPO_URI')
 else:
     repo_uri = "https://github.com/Hexxeh/rpi-firmware"
+
+kernel_version = open('/proc/version').read().split()[2]
+
 parser.add_argument("--uri", help="Github repository to use. Default is '%s'" % repo_uri,
                     default=repo_uri)
 parser.add_argument("--delete", help="Delete downloaded archive",
@@ -56,6 +59,9 @@ parser.add_argument("-q", "--quiet", help="Quiet",
 parser.add_argument("-g", "--default-config", help="Generate a default kernel configuration with 'make bcmrpi_defconfig'",
                     action="store_true")
 parser.add_argument("--processor", type=int, choices=PROCESSOR_TYPES, help="Override Processor type")
+parser.add_argument("--kernel", help="Kernel version", default=kernel_version)
+parser.add_argument("--config", help="Kernel build config to use. Default is '/proc/config.gz'",
+                    default='/proc/config.gz')
 parser.add_argument("--skip-gcc", help=argparse.SUPPRESS, action="store_true")  # Deprecated
 parser.add_argument("--skip-space", help="Skip disk space check",
                     action="store_true")
@@ -208,13 +214,13 @@ def check_gcc():
         debug("gcc version check: mismatch between installed gcc (%s) and /proc/version (%s)" % (gcc_ver[0], gcc_ver_kernel.group(1)))
 
 def proc_config_gz():
-    if not os.path.exists('/proc/config.gz'):
+    if not os.path.exists(args.config):
         sh("sudo modprobe configs 2> /dev/null")
 
-    if not os.path.exists('/proc/config.gz'):
+    if not os.path.exists(args.config):
         return ''
 
-    with gzip.open('/proc/config.gz', 'rb') as f:
+    with gzip.open(args.config, 'rb') as f:
         return f.read()
 
 
@@ -394,9 +400,9 @@ sh("rm -f %s" % linux_symlink)
 sh("ln -s %s %s" % (linux_dir, linux_symlink))
 
 info("Create /lib/modules/<ver>/{build,source} symlinks")
-sh("sudo rm -rf /lib/modules/$(uname -r)/build /lib/modules/$(uname -r)/source")
-sh("sudo ln -sf %s /lib/modules/$(uname -r)/build" % linux_symlink)
-sh("sudo ln -sf %s /lib/modules/$(uname -r)/source" % linux_symlink)
+sh("sudo rm -rf /lib/modules/{kver}/build /lib/modules/{kver}/source".format(kver=args.kernel))
+sh("sudo ln -sf {dir} /lib/modules/{kver}/build".format(dir=linux_symlink, kver=args.kernel))
+sh("sudo ln -sf {dir} /lib/modules/{kver}/source".format(dir=linux_symlink, kver=args.kernel))
 
 if args.default_config or not kernel.config:
     info(".config (generating default)")
